@@ -1,0 +1,540 @@
+GET _search
+{
+  "query": {
+    "match_all": {}
+  }
+}
+
+GET _cat/aliases
+GET _cat/indices?v
+GET _cat/health?v
+
+GET _cat/nodes?v
+GET _cat/allocation?v
+GET _cat/shards?v
+
+GET /_all/_mapping
+
+GET customers/test/_count
+
+GET productmapping/default/_mapping
+PUT /productmapping/default/
+POST /productmapping/default/2000
+{
+  "description": "Test",
+  "discount": 20,
+  "sellprice" : 50
+}
+
+GET productmapping/default/_search
+PUT /productmapping/default/_mapping
+{
+  "properties": {
+     "in_stock": {
+      "type": "text",
+      "fields": {
+        "keyword": {
+          "type": "keyword"
+        }
+      }
+    }
+  }
+}
+
+GET /productmapping/default/_search
+{
+  "query": {
+    "match": {
+      "description": "Test"
+    }
+  }
+}
+
+POST productmapping/_update_by_query?conflicts=proceed
+
+
+POST _analyze
+{
+  "tokenizer" : "standard",
+  "text": "I'm in the mood for drinking semi-dry red wine!"
+}
+
+POST _analyze
+{
+  "filter" : [ "lowercase" ],
+  "text": "I'm in the mood for drinking semi-dry red wine!"
+} 
+
+POST _analyze
+{
+  "analyzer": "standard",
+  "text": "The 2 QUICK Brown-Foxes jumped over the lazy dog's bone."
+}
+
+
+PUT /analyzers_test_config
+{
+  "settings": {
+    "analysis": {
+      "analyzer": {
+        "english_stop": {
+          "type": "standard",
+          "stopwords": "_english_"
+        }
+      },
+      "filter": {
+        "my_stemmer": {
+          "type": "stemmer",
+          "name": "english"
+        }
+      }
+    }
+  }
+}
+
+POST /analyzers_test_config/_analyze
+{
+  "analyzer": "english_stop",
+  "text": "I'm in the mood for drinking semi-dry red wine!"
+}
+
+
+PUT /analyzers_test
+{
+  "settings": {
+    "analysis": {
+      "filter": {
+        "my_stemmer": {
+          "type": "stemmer",
+          "name": "english"
+        }
+      },
+      "analyzer": {
+        "english_stop": {
+          "type": "standard",
+          "stopwords": "_english_"
+        },
+        "my_analyzer": {
+          "type": "custom",
+          "tokenizer": "standard",
+          "char_filter": [
+            "html_strip"
+          ],
+          "filter": [
+            "standard",
+            "lowercase",
+            "trim",
+            "my_stemmer"
+          ]
+        }
+      }
+    }
+  }
+}
+
+
+POST /analyzers_test/_analyze
+{
+  "analyzer": "my_analyzer",
+  "text": "I'm in the mood for drinking <strong>semi-dry</strong> red wine!"
+}
+
+PUT /analyzers_test/default/_mapping
+{
+  "properties": {
+    "description": {
+      "type": "text",
+      "analyzer": "my_analyzer"
+    },
+    "teaser": {
+      "type": "text",
+      "analyzer": "standard"
+    }
+  }
+}
+
+
+GET product/default/_search
+
+
+GET /udemyproduct/default/_search
+{
+  "query": {
+    "ids": {
+      "values": [ 1, 2, 3 ]
+    }
+  }
+}
+
+
+GET /udemyproduct/default/_search
+{
+  "query": {
+    "range": {
+      "FIELD": {
+        "gte": 10,
+        "lte": 20
+      }
+    }
+  }
+}
+
+DELETE udemyproduct
+
+GET /product/default/_search
+{
+  "query": {
+    "range": {
+      "created": {
+        "gte": "now"
+      }
+    }
+  }
+}
+
+GET product/default/_search
+{
+  "query": {
+    "range": {
+      "sold": {
+        "lt": 10
+      }
+    }
+  }
+}
+
+GET product/default/_search
+{
+  "query": {
+    "range": {
+      "sold": {
+        "gte":10, 
+        "lt": 30
+      }
+    }
+  }
+}
+  
+  
+GET product/default/_search
+{
+"query": {
+  "term": {
+    "tags": "meat"
+    }
+}
+}
+
+GET /product/default/_search
+{
+  "query": {
+    "terms": {
+      "name": [ "Tomato", "Paste" ]
+    }
+  }
+}
+
+
+GET recipe/default/_search
+{
+  "query": {
+    "match": {
+      "title": "pasta with parmesan and spinach"
+    }
+  }
+}
+
+GET recipe/default/_search
+{
+  "query": {
+    "match_phrase": {
+      "title": "pasta carbonara"
+    }
+  }
+}
+
+GET recipe/default/_search
+{
+  "query": {
+    "multi_match": {
+      "query": "pasta pesto",
+      "fields": ["title","description"]
+    }
+  }
+}
+
+GET recipe/default/_search
+{
+  "query": {
+    "bool": {
+      "must": [
+        {
+          "match": {
+            "ingredients.name": "parmesan"
+          }
+          
+        },
+        {
+          "range": {
+           "preparation_time_minutes": {
+              "lte": 15
+            }
+          }
+        }
+      ]
+    }
+  }
+}
+
+GET /recipe/default/_search
+{
+    "query": {
+        "bool": {
+          "must": [
+            {
+              "match": {
+                "ingredients.name": {
+                  "query": "parmesan"
+                }
+              }
+            }
+          ],
+          "must_not": [
+            {
+              "match": {
+                "ingredients.name": {
+                  "query": "tuna",
+                  "_name": "tuna_must_not"
+                }
+              }
+            }
+          ],
+          "should": [
+            {
+              "match": {
+                "ingredients.name": {
+                  "query": "parsley",
+                  "_name": "parsley_should"
+                }
+              }
+            }
+          ],
+          "filter": [
+            {
+              "range": {
+                "preparation_time_minutes": {
+                  "lte": 15,
+                  "_name": "prep_time_filter"
+                }
+              }
+            }
+          ]
+        }
+    }
+}
+
+
+GET order/default/_search
+{
+  "size": 0,
+  "aggs": {
+    "total_sales": {
+      "stats": {
+        "field": "total_amount"
+      }
+    }
+  }
+}
+
+
+PUT /order/default/_mapping
+{
+  "properties": {
+    
+    "status":{
+      "type": "text", 
+      "fielddata": true
+    }
+  }
+}
+
+GET /order/default/_search
+{
+  "size": 0,
+  "aggs": {
+    "status_terms": {
+      "terms": {
+        "field": "status",
+        "min_doc_count": 0,
+        "missing": "N/A"
+  
+      }
+    }
+  }
+}
+
+DELETE order
+
+GET /order/default/_search
+{
+  "query": {
+    
+    "range": {
+      "total_amount": {
+        "gte": 101
+        
+      }
+    }
+  }, 
+  "size": 0, 
+  "aggs": {
+    "status_terms": {
+      "terms": {
+        "field": "status"
+      
+      },
+      "aggs": {
+        "status_sts": {
+          "stats": {
+            "field": "total_amount"
+          }
+        }
+      }
+    }
+    
+  }
+}
+
+GET /recipe/default/_search
+{
+  "size": 0,
+  "aggs": {
+    "my_filter": {
+      "filters": {
+        "filters": {
+          "pasta": {
+            "match": {
+              "title": "pasta"
+            }
+          },
+          "spaghetti": {
+            "match": {
+              "title": "spaghetti"
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+GET /order/default/_search
+{
+  "size": 0,
+  "query": {
+    "range": {
+      "total_amount": {
+        "gte": 100
+      }
+    }
+  },
+  "aggs": {
+    "amount_distribution": {
+      "histogram": {
+        "field": "total_amount",
+        "interval": 25,
+        "min_doc_count": 0,
+        "extended_bounds": {
+          "min": 0,
+          "max": 500
+        }
+      }
+    }
+  }
+}
+
+
+GET /department/default/_search
+{
+  "size": 5,
+  "aggs": {
+    "employees": {
+      "nested": {
+        "path": "employees"
+      }
+    }
+  }
+}
+
+
+PUT /proximity/default/1
+{
+  "title": "Spicy Sauce"
+}
+
+PUT /proximity/default/2
+{
+  "title": "Spicy Tomato Sauce"
+}
+
+PUT /proximity/default/3
+{
+  "title": "Spicy Tomato and Garlic Sauce"
+}
+
+PUT /proximity/default/4
+{
+  "title": "Tomato Sauce (spicy)"
+}
+
+PUT /proximity/default/5
+{
+  "title": "Spicy and very delicious Tomato Sauce"
+}
+
+
+GET /proximity/default/_search
+{
+  "query": {
+    "bool": {
+      "must": [
+        {
+          "match": {
+            "title": "spicy sauce"
+          }
+        }
+      ]
+      ,
+      "should": [
+        {
+          "match_phrase": {
+            "title": {
+              "query": "spicy sauce",
+              "slop" : 2
+            }
+          }
+        }
+      ]
+    }
+  }
+}
+
+GET product/default/_search?explain
+{
+  "query": {
+    "match": {
+      "name":{
+        "query": "lobstre"
+        , "fuzziness": "1"
+        
+      }
+    }
+  }
+}
+
+
+DELETE logstash*
+
+PUT _template/winlogbeat
+
+GET winlog

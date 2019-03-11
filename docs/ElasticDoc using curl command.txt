@@ -1,0 +1,496 @@
+To create indices:
+
+>curl -XPUT http://localhost:9200/products?&pretty
+>curl -XPUT http://localhost:9200/customers?&pretty
+>curl -XPUT http://localhost:9200/orders?&pretty
+
+To list indices:
+>>curl -XGET http://localhost:9200/_cat/indices?v&pretty
+health status index    uuid                   pri rep docs.count docs.deleted store.size pri.store.size
+yellow open   products GEwOpOCpTqyl94sHOCdtow   5   1          0            0       810b           810b
+
+
+To add documents inisde products under mobiles category with id 1
+curl -XPUT 'localhost:9200/products/mobiles/1?pretty' 'Content-Type: application/json' -d'
+{
+"name" : "iphone 7",
+"camera" : "12MP"
+}
+'
+
+curl -XPUT 'localhost:9200/products/mobiles/2?pretty' -d'
+{
+"name" : "Xiamoi Note",
+"camera" : "11MP",
+"storage":"128GB",
+"display" : "5.5 inch"
+}
+'
+
+curl -XPUT 'localhost:9200/products/mobiles/3?pretty' -d'
+{
+"name" : "Xiamoi Note",
+"camera" : "11MP",
+"storage":"128GB",
+"display" : "5.5 inch"
+}
+'
+
+To get document
+
+C:\>curl -XGET http://localhost:9200/products/mobiles/1
+{"_index":"products","_type":"mobiles","_id":"1","_version":3,"found":true,"_source":
+{
+"name" : "iphone 7",
+"camera" : "12MP"
+}
+}
+source not required
+>curl -XGET http://localhost:9200/products/mobiles/1?_source=false
+
+
+To update document use update api inside doc 
+curl -XPOST 'localhost:9200/products/mobiles/2/_update?pretty' -d'
+{
+"doc":{
+"color" :"black"
+}
+}
+'
+
+Documents in es are immutable that it cannot be changed.
+To delete the document:
+curl -XDELETE 'localhost:9200/products/mobiles/3?pretty'
+
+
+once delete if you try to get the document it wont work
+
+GET
+curl -XGET 'localhost:9200/products/mobiles/3?pretty'
+
+TO receive the header response of document once deleted you can use
+
+curl -I -XHEAD 'localhost:9200/products/mobiles/3?pretty'
+
+To retrieve the documents
+
+********************************************************************SEARCH************************************************
+
+Jsone-generator.com to generate json 
+[
+  '{{repeat(1000,1000)}}',
+  {
+    name: '{{firstName()}} {{surname()}}',
+    age: '{{integer(18,75)}}',
+    gender:'{{gender()}}',
+    email:'{{email()}}',
+    phone:'{{phone()}}',
+    street:'{{integer(100,999)}} {{street()}}',
+    city:'{{city()}}',
+    state:'{{state()}},{{integer(100,10000)}}'
+  }
+]
+
+Generate json
+
+Open in sublime text wiht compact mode
+Now find: },{ and replace usoing regext }\n{
+
+Now find : {"name"} replace with {"index": {}}\n{"name"
+
+To run bulk 
+$  curl -H "Content-Type: application/x-ndjson" -XPOST 'localhost:9200/customers/personal/_bulk?refresh' --data-binary @"customer_full.json"
+
+For search in browser
+http://localhost:9200/customers/_search?q=wyoming
+
+descending sort
+http://localhost:9200/customers/_search?q=wyoming&sort=age:desc
+
+Search in state
+http://localhost:9200/customers/_search?q=state:kentucky&sort=age:desc
+
+From and Size
+http://localhost:9200/customers/_search?q=state:kentucky&from=10&size=2
+
+
+
+Search term withing request body
+ curl -XGET 'localhost:9200/products/_search?pretty' -d'
+ {
+ "query" : {"match_all":{}},
+ "size":1
+ }
+'
+
+Term Searches
+
+Exact Match:
+ curl -XGET 'localhost:9200/customers/_search?pretty' -d'
+ {
+ "query" :{
+	"term" :{ "name" : "gates" }
+ }
+ }
+ '
+ 
+ _source Field : includes st and n and excludes property with der
+ 
+  curl -XGET 'localhost:9200/customers/_search?pretty' -d'
+ {
+ "_source":{
+ "includes": ["st*","*n*"],
+  "excludes": ["*der"]
+ },
+ "query" :{
+	"term" :{ "state" : "washington" }
+ }
+ }
+'
+ 
+ Full Text Queries using 
+ match
+ match_phrase
+ match_phrase_prefix 
+
+ 
+ Logical Or Matches
+ washington or norris will be searched inside name 
+ curl -XGET 'localhost:9200/customers/_search?pretty' -d'
+ {
+	"query" : { "match" : 
+	{ "name" :
+		{"query" : "washington norris","operator" : "or"}
+	}
+	}
+ }
+ '
+
+Using match it will perform default or operation on tompkins or place 
+ curl -XGET 'localhost:9200/customers/_search?pretty' -d'
+ {
+	"query" : { "match" : 
+	{ "street" :"tompkins place"
+	}
+	}
+ }
+ '
+
+ Using match phrase 
+
+ curl -XGET 'localhost:9200/customers/_search?pretty' -d'
+ {
+	"query" : { "match_phrase" : 
+	{ "street" :"tompkins place"
+	}
+	}
+ }
+ '
+ 
+ Using Match Phrase prefix
+ We want all names that begin with prefix m-a
+ You can consider this match phrase prefix as autocomplete 
+  curl -XGET 'localhost:9200/customers/_search?pretty' -d'
+ {
+	"query" : { "match_phrase_prefix" : 
+	{ "name" :"ma"
+	}
+	}
+ }
+ '
+
+ 
+ common terms
+  curl -XGET 'localhost:9200/customers/_search?pretty' -d'
+ {
+	"query" : {"common" :{
+	"reviews":{"query": "this is great","cutoff_frequency":0.001
+	}
+}
+}
+}'
+
+
+Boolean Compound QUeries
+
+bool keyword followed by must
+
+It must match ditmas and avenue
+curl -XGET 'localhost:9200/customers/_search?pretty' -d'
+{
+"query": {"bool": {"must": 
+   [{"match": {"street": "ditmas"}},
+   {"match": {"street": "avenue"}}]}}
+}'
+
+Result : street :""Ditmas Avenue"
+
+should : It will try to match all the terms doc may contain one or the other term
+
+curl -XGET 'localhost:9200/customers/_search?pretty' -d'
+{
+"query": {"bool": {"should": 
+   [{"match": {"street": "ditmas"}},
+   {"match": {"street": "avenue"}}]}}
+}'
+
+Result will be more if you use should
+
+
+Must_not exclude the terms which does not matches in result set
+It will leave out doc which excludes california and texs etc
+Since we are excluding it relevant score does not matter
+curl -XGET 'localhost:9200/customers/_search?pretty' -d'
+{
+"query": {"bool": {"must_not": 
+   [{"match": {"street": "california texas"}},
+   {"match": {"street": "lane street"}}]}}
+}'
+
+
+Term query 
+
+curl -XGET 'localhost:9200/customers/_search?pretty' -d'
+{
+"query": {"bool": {"should": [{"term" : {"state" : {"value" : "idaho"}}},{"term" : {"state" : {"value" : "california"}}}]}}}'
+
+Term query using boost
+curl -XGET 'localhost:9200/customers/_search?pretty' -d'
+{
+"query": {"bool": {"should": [{"term" : {"state" : {"value" : "idaho","boost":2.0}}},{"term" : {"state" : {"value" : "california"}}}]}}}'
+	
+	
+	
+	GET /customers/_search
+{
+  "query": {
+    "bool": {
+      "must": 
+        {
+          "match_all": {}
+          }
+      ,
+      "filter": {
+        "range": {
+          "age": {
+            "gte": "20",
+            "lte": "30"
+          }
+        }
+      }
+    }
+  }
+}
+
+	
+Term filter looks for gender
+so gender female with range age greater than 50
+	GET /customers/_search
+{
+  "query": {
+    "bool": {
+      "must": 
+        {
+          "match": { "state" :"alabama"}
+       },
+      "filter": [
+        {"term" { "gender" : "female}},
+		{"range": {"age": {"gte": "50"}}}
+		]
+    }
+  }
+}
+
+******************************************************************************Analytical Queries********************************************
+Aggreation age it will provide you avg_Age
+curl -XGET 'localhost:9200/customers/_search?pretty' -d'
+{
+"size" : 0, "aggs" : {"avg_age" : { "avg": { "field": "age" }}}}'
+
+age aggregation on minnestoa it can be combined using bool field
+curl -XGET 'localhost:9200/customers/_search?pretty' -d'
+{
+"size" : 0, 
+"query": {"bool": {"filter" : { "match" :{ "street": "avenue"}}}},
+"aggs" : {"avg_age" : { "avg": { "field": "age" }}}}'	
+	
+	
+To calculate statistics
+
+curl -XGET 'localhost:9200/customers/_search?pretty' -d'
+{
+"size" : 0, "aggs" : {"avg_sts" : { "stats": { "field": "age" }}}}'
+	
+	
+Result:  "aggregations" : {
+    "avg_sts" : {
+      "count" : 999,
+      "min" : 18.0,
+      "max" : 75.0,
+      "avg" : 45.467467467467465,
+      "sum" : 45422.0
+    }
+  }
+
+  
+ To calculate cardinality
+ 
+curl -XGET 'localhost:9200/customers/_search?pretty' -d'
+{
+"size" : 0, "aggs" : {"gender_count" : { "cardinality": { "field": "gender" }}}}'
+   
+ Enable field data
+ curl -XPUT 'localhost:9200/customers/_mapping/personal?pretty' -d'
+ {"properties" : {"gender" : {"type" :"text","fielddata":true}} 
+ }'
+	
+curl -XGET 'localhost:9200/customers/_search?pretty' -d'
+{
+"size" : 0, "aggs" : {"age_count" : { "cardinality": { "field": "gender" }}}}'
+
+
+BUCKETING
+curl -XGET 'localhost:9200/customers/_search?pretty' -d'
+{
+"size" : 0, "aggs" : {"gender_bucket" : { "terms": { "field": "gender" }}}}'
+
+Bucket with key male and with female will provide value.
+
+Provide every count of age 
+curl -XGET 'localhost:9200/customers/_search?pretty' -d'
+{
+"size" : 0, "aggs" : {"age_bucket" : { "terms": { "field": "age" }}}}'
+
+*******************************************************************************************************************************************************************************************************
+
+MEta Field:
+_id: Id of document
+_source: Contains the original JSON object used when indexing a document
+_field_names: contians the names of everyfield that contains a non null value
+_routing: stores teh value used to route a document to a shard
+_meta: May be used to store custom data that is left untouched by ElasticSearch
+
+
+Field Data Types:
+1. Core : Primite data type
+Text data type (Text):  Used to index full-text value such as descriptions. Valus are analyzed
+Keyword Data type(keyword) : Used for filtering and aggregations. Used for structued data . Not analysed
+Binary Data type (binary)
+Numeric Data type: 
+Date data type (date): 
+Boolean
+Range Data types : gte ,lte ,lt or gt
+
+2. Complex Data type
+JSON object . Plain json object
+
+
+Array Data type : Not an actual data bype because each field may contain multiple values by default. They are flattened when index.
+
+Array of objects: Associations between objects are lost
+
+"persons":[
+	{"name" : "Bo" , "age":28},
+	{"name" : "Fo","age":20} 
+]
+
+becomes in elastic search
+
+person.name :["bo","fo"]
+person.age:[20,28]
+
+Here we lost the relation if we want to search bo with age 28 so in order to avoid this we have another data type called as Nested data type
+Nested Data Type (nested) : In order to use this we need to use nested queries
+
+
+3. Geo : Data types that are used fo geo data types
+Gep-point data type (geo_point)
+
+More complex geo data type is geo_shape
+
+4. Specialized Data type
+ip: For storing Ip address
+completion : Auto completion . Optimized for quick lookups. Suggester is far better approach
+Attachment Data Type (attachment)  : Uses apache tika internally for text recogniiton
+
+
+Add field using mapping 
+#add discount field using mapping 
+GET udemyproduct/default/_mapping
+{
+  "properties" :{
+    "discount" :{
+      "type" : "double"
+    }
+  }
+}
+
+Existing mapping cannot be updated but there are few exceptions .
+We need to reindex the data for mapping 
+
+PUT /productmapping 
+{
+  "mappings": {
+ type=>   "default":{
+      "dynamic" :false,
+      "properties":{
+        "in_stock":{
+          "type": "integer"
+        },
+        "is_active":{
+          "type": "integer"
+        },
+        "price":{
+          "type":"integer"
+        },
+        "sold":{
+          "type": "long"
+        }
+        
+      }
+    }
+  }
+  
+}
+
+Mapping Parameters:
+coerce : Can be used to disable coercion(automatically cleaning up values)
+copy-to:
+Enables you to create custom fields. Copies field values into a given ield. Copies values not terms.
+Enables or disables adding fields to documents or inner objects dynamically
+
+norms: Whether or not to disable storing norms (used for relevance scores)
+format : Defines the fomrat for date fields
+null_value : Replaces null values with the specified value.
+fields: Used to index fields in different ways.
+
+
+
+
+
+
+
+
+
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	

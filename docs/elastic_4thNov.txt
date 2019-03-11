@@ -1,0 +1,378 @@
+GET _search
+{
+  "query": {
+    "match_all": {}
+  }
+}
+GET _cat/aliases
+GET _cat/indices?v
+GET _cat/health?v
+
+GET _cat/nodes?v
+GET _cat/allocation?v
+GET _cat/shards?v
+
+GET /_all/_mapping
+
+GET customers/test/_count
+POST /my-index/my-type/1
+{
+  "body" : "foo"
+}
+
+GET /
+
+GET /library/books/1
+PUT /library
+{
+  "settings": {
+    "index.number_of_shards" : 1,
+    "index.number_of_replicas" :0
+  }
+}
+
+#Bulk Indexing
+#WHen you need to index lot of docs
+POST /library/books/_bulk
+{"index" :{"_id" :1 }}
+{"title" : "The quick brown fox","price" :5,"colors":["red","green","blue"]}
+{"index" :{"_id" :2 }}
+{"title" : "The quick brown fox jumps over lazy dog","price" :15,"colors":["blue","yellow"]}
+{"index" :{"_id" :3 }}
+{"title" : "The quick brown fox jumps over quick dog","price" :8,"colors":["red","blue"]}
+{"index" :{"_id" :4 }}
+{"title" : "Brown for brown dog","price" :2,"colors":["black","yellow","blue"]}
+{"index" :{"_id" :5 }}
+{"title" : "Lazy dog","price" :9,"colors":["red","green","blue"]}
+
+
+GET /library/books/_mapping
+#Find all the documens
+GET /library/books/_search
+
+#Find all fox documents
+#Results are ranked by relevance score
+#https://www.elastic.co/guide/en/elasticsearch/guide/current/relevance-intro.html
+GET /library/books/_search
+{
+  "query": {
+    "match": {
+      "title": "fox"
+    }
+  }
+}
+
+#More strict and ask for phrases
+GET /library/books/_search
+{
+  "query": {
+    "match_phrase": {
+      "title": "quick dog"
+    }
+  }
+}
+
+#bool query
+GET /library/books/_search
+{
+  "query": {
+    "bool": {
+      "must_not": [
+        {
+          "match": {
+            "title": "lazy"
+          }
+        },
+        {
+          "match_phrase": {
+            "title": "quick dog"
+          }
+        }
+      ]
+    }
+  }
+}
+
+#Combinations can be boosted for different effects
+GET /library/books/_search
+{
+  "query": {
+    "bool": {
+      "should": [
+        {
+          "match_phrase": {
+            "title": {
+              "query": "quick dog"
+            }
+          } 
+        },
+        {
+          "match_phrase": {
+            "title": {
+              "query": "lazy dog",
+              "boost" : 3
+            }
+          }
+        }
+      ]
+      
+      
+    }
+  }
+}
+
+
+
+#Highlight the match
+GET /library/books/_search
+{
+  "query": {
+    "bool": {
+      "should": [
+        {
+          "match_phrase": {
+            "title": {
+              "query": "quick dog",
+              "boost" : 2
+            }
+          } 
+        },
+        {
+          "match_phrase": {
+            "title": {
+              "query": "lazy dog"
+              
+            }
+          }
+        }
+      ]
+    }
+  },
+  "highlight": {
+    "fields": {
+      "title": {}
+    }
+  }
+}
+
+#filtering is faster than queryin
+GET /library/books/_search
+{
+  "query": {
+    "bool": {
+      "must": [
+        {
+          "match": {
+            "title": "dog"
+          }
+        }
+      ],
+      "filter": {
+        "range": {
+          "price": {
+            "gte": 5,
+            "lte": 20
+          }
+        }
+      }
+    }
+  }
+}
+
+#aggregartion can be used to explore your data
+GET /library/_search
+{
+   "size": 0,
+   "aggs": {
+     "popular-colors": {
+       "terms": {
+         "field": "colors.keyword"
+       }
+     }
+   }
+}
+
+#search and aggregate
+GET /library/_search
+{
+  "query": {
+    "match": {
+      "title": "dog"
+    }
+  }, 
+   "aggs": {
+     "popular-colors": {
+       "terms": {
+         "field": "colors.keyword"
+       }
+     }
+   }
+}
+
+#multiple aggrageations can be calculated at once and can perform calculations
+GET /library/_search
+{
+  "size": 0,
+  "aggs": {
+    "price-statistics": {
+      "stats": {
+        "field": "price"
+      }
+    },
+    "popular-colors" : {
+      "terms": {
+        "field": "colors.keyword"
+      },
+      "aggs": {
+        "avg-price-per-color": {
+          "avg": {
+            "field": "price"
+          }
+        }
+      }
+    }
+  }
+}
+
+
+#Check the mappings 
+GET udemyproduct/default/_mapping
+
+GET /udemyproduct/default/_search
+{
+  "query":{
+  "match_all": {}   
+  }
+  
+} 
+
+#add discount field using mapping 
+GET udemyproduct/default/_mapping
+{
+  "properties" :{
+    "discount" :{
+      "type" : "double"
+    }
+  }
+}
+
+
+#change mapping for exisiting mapping
+
+PUT /productmapping 
+{
+  "mappings": {
+    "default":{
+      "dynamic" :false,
+      "properties":{
+        "in_stock":{
+          "type": "integer"
+        },
+        "is_active":{
+          "type": "integer"
+        },
+        "price":{
+          "type":"integer"
+        },
+        "sold":{
+          "type": "long"
+        }
+        
+      }
+    }
+  }
+  
+}
+
+GET library
+GET /productmapping/
+GET new_library/
+
+DELETE new_library
+PUT new_library
+{"mappings": {
+      "books": {
+        "properties": {
+          "colors": {
+            "type": "text",
+            "fields": {
+              "keyword": {
+                "type": "keyword",
+                "ignore_above": 256
+              }
+            }
+          },
+          "price": {
+            "type": "text"
+          },
+          "title": {
+            "type": "text",
+            "fields": {
+              "keyword": {
+                "type": "keyword",
+                "ignore_above": 256
+              }
+            }
+          }
+        }
+      }
+    }
+}
+
+PUT new_library/books/_mapping
+{
+  "properties": {
+    
+    "wildcard1":{
+      "type": "text",
+      "store": true
+    }
+    }
+}
+
+PUT new_library/books/_mapping
+{
+  "properties": {
+    
+    "price":{
+      "type": "text",
+      "copy_to": "wildcard1"
+    }
+    }
+}
+
+GET new_library/books/_search
+{
+  "_source": "wildcard1"
+}
+
+GET new_library/books/_count
+
+POST new_library/books/1/_update
+{
+  "doc" : {"wildcard1" : 1}
+}
+POST _reindex
+{
+  "source": {
+    "index": "library"
+  },
+  "dest": {
+    "index": "new_library"
+  }
+}
+
+
+POST /library/test/_bulk
+{"index" :{"_id" :1 }}
+{"title" : "The quick brown fox","price" :5,"colors":["red","green","blue"],"discount" : 10000.11914}
+{"index" :{"_id" :2 }}
+{"title" : "The quick brown fox jumps over lazy dog","price" :15,"colors":["blue","yellow"],"discount" : 2220000.11914}
+{"index" :{"_id" :3 }}
+{"title" : "The quick brown fox jumps over quick dog","price" :8,"colors":["red","blue"]}
+{"index" :{"_id" :4 }}
+{"title" : "Brown for brown dog","price" :2,"colors":["black","yellow","blue"]}
+{"index" :{"_id" :5 }}
+{"title" : "Lazy dog","price" :9,"colors":["red","green","blue"]}
+
+GET library/test/_mapping
